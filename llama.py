@@ -110,7 +110,7 @@ def llama_sequential(model, dataloader, dev):
                 quant_method[name].configure(
                                     args.quant,
                                     args.wbits, 
-                                    args.qbits, 
+                                    # args.qbits, # ? do not need this parameter
                                     args.npasses,
                                     unbiased=args.unbiased)
                 quant_method[name].quantizer = Quantizer()
@@ -503,7 +503,11 @@ if __name__ == '__main__':
     parser.add_argument('--check', action='store_true', help='Whether to compute perplexity during benchmarking for verification.')
     parser.add_argument('--new-eval', action='store_true', help='Whether to use the new PTB and C4 eval')
     parser.add_argument('--layers-dist', type=str, default='', help='Distribution of layers across GPUs. e.g. 2:1:1 for 2 layers on GPU 0, 1 layer on GPU 1, and 1 layer on GPU 2. Any remaining layers will be assigned to your last GPU.')
-
+    parser.add_argument(
+        '--unbiased',
+        action='store_true',
+        help='unbiased')
+    parser.add_argument('--save_pretrained',type=str,default=None)
     args = parser.parse_args()
 
     if args.layers_dist:
@@ -519,7 +523,9 @@ if __name__ == '__main__':
     else:
         model = get_llama(args.model)
         model.eval()
-
+    if 'llama-2' in args.model.lower():
+        model.seqlen = 4096
+    print('seqlen', model.seqlen)
     dataloader, testloader = get_loaders(args.dataset, nsamples=args.nsamples, seed=args.seed, model=args.model, seqlen=model.seqlen)
 
     if not args.load and args.wbits < 16:
@@ -567,6 +573,8 @@ if __name__ == '__main__':
     if args.save:
         # llama_pack(model, quantizers, args.wbits, args.groupsize)
         torch.save(model.state_dict(), args.save)
+    if args.save_pretrained:
+        model.save_pretrained(args.save_pretrained)        
 
     # if args.save_safetensors:
     #     llama_pack(model, quantizers, args.wbits, args.groupsize)
